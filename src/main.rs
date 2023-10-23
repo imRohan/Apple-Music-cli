@@ -1,10 +1,9 @@
-use std::process::Command;
+mod application;
+mod terminal;
 
 fn main() {
-    let command = r#"tell application "Music" to play"#;
-    Command::new("osascript")
-        .arg("-e")
-        .arg(command)
-        .output()
-        .expect("failed to execute process");
+    let mut apple_music = application::AppleMusic::new();
+    apple_music.start();
+    terminal::start(&mut apple_music).
+        expect("count not render UI");
 }
