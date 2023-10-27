@@ -61,4 +61,13 @@ impl AppleMusic {
         let album = AppleMusic::run_command("get album of current track");
         NowPlaying { title: title, artist: artist, album: album }
     }
+
+    pub fn status_icon(&mut self) -> &str {
+        match self.status {
+            Status::PLAYING => "playing",
+            Status::PAUSED => "paused",
+            Status::STOPPED => "stopped",
+            Status::NotRunning => "Closed",
+        }
+    }
 }

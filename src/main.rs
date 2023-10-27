@@ -1,9 +1,7 @@
 mod application;
-mod terminal;
+mod renderer;
 
 fn main() {
-    let mut apple_music = application::AppleMusic::new();
-    apple_music.start();
-    terminal::start(&mut apple_music).
-        expect("count not render UI");
+    let mut ui = renderer::Renderer::new();
+    ui.start().expect("count not render UI");
 }
