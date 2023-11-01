@@ -11,7 +11,6 @@ use crate::application::AppleMusic;
 pub struct Renderer {
     pub application: AppleMusic,
     pub should_quit: bool,
-    pub pause_music: bool,
 }
 
 impl Renderer {
@@ -19,7 +18,6 @@ impl Renderer {
         Renderer {
             application: AppleMusic::new(),
             should_quit: false,
-            pause_music: false,
         }
     }
 
@@ -29,7 +27,6 @@ impl Renderer {
         while !self.should_quit { 
             terminal.draw(|f| self.ui(f))?;
             self.handle_inputs()?;
-            self.update_application_state();
         }
         self.teardown()
     }
@@ -38,7 +35,6 @@ impl Renderer {
         self.application.start();
         enable_raw_mode()?;
         stdout().execute(EnterAlternateScreen)?;
-        self.application.play();
         Ok(())
     }
 
@@ -51,50 +47,57 @@ impl Renderer {
 
     fn handle_inputs(&mut self) -> io::Result<()> {
         self.should_quit = self.handle_events('q')?;
-        if self.handle_events('p')? {
-            self.pause_music = !self.pause_music
-        }
         Ok(())
-    }
-
-    fn update_application_state(&mut self) {
-        if self.pause_music {
-            self.application.pause()
-        } else {
-            self.application.play()
-        }
     }
 
     fn ui(&mut self, frame: &mut Frame) {
         let main_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(1),
-                Constraint::Min(0),
-                Constraint::Length(1),
+                Constraint::Percentage(10),
             ])
-            .split(frame.size());
-        frame.render_widget(
-            Block::new().borders(Borders::TOP).title(self.application.now_playing().title),
-            main_layout[0],
+            .split(frame.size()
         );
-        frame.render_widget(
-            Block::new().borders(Borders::TOP).title(self.application.status_icon()),
-            main_layout[2],
+        let label = Span::styled(
+            self.title(),
+            Style::new()
+                .white()
+                .add_modifier(Modifier::BOLD),
         );
+        let progress_bar = Gauge::default()
+            .label(label)
+            .gauge_style(self.guage_background())
+            .percent(self.song_percent());
+        frame.render_widget(progress_bar, main_layout[0]);
+    }
 
-        let inner_layout = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(main_layout[1]);
-        frame.render_widget(
-            Block::default().borders(Borders::ALL).title("Left"),
-            inner_layout[0],
-        );
-        frame.render_widget(
-            Block::default().borders(Borders::ALL).title("Right"),
-            inner_layout[1],
-        );
+    fn title(&mut self) -> String {
+        let now_playing = self.application.now_playing();
+        let player_state = self.application.state_icon();
+
+        if self.application.stopped() {
+            "No Track Playing".to_string()
+        } else {
+            format!("{}  {}", player_state, now_playing.title)
+        }
+    }
+
+    fn song_percent(&mut self) -> u16 {
+        if self.application.stopped() {
+            100
+        } else {
+            self.application.track_position()
+        }
+    }
+
+    fn guage_background(&mut self) -> Style {
+        if self.application.stopped() {
+            Style::new().red()
+        } else if self.application.is_playing() {
+            Style::new().light_green()
+        } else {
+            Style::new().light_blue()
+        }
     }
 
     fn handle_events(&mut self, character: char) -> io::Result<bool> {
