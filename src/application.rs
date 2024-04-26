@@ -1,7 +1,6 @@
 use std::process::{Command, Stdio};
 
 pub struct AppleMusic {
-    pub status: Status,
 }
 
 pub struct NowPlaying {
@@ -10,17 +9,11 @@ pub struct NowPlaying {
     pub album: String,
 }
 
-pub enum Status {
-    NotRunning,
-    PLAYING,
-    PAUSED,
-    STOPPED,
-}
-
 impl AppleMusic {
     fn run_command(command: &str) -> String {
         let script = format!(r#"tell application "Music" to {}"#, command);
-        AppleMusic::execute_osascript(&script)
+        let output = AppleMusic::execute_osascript(&script);
+        output.trim().to_string()
     }
 
     fn execute_osascript(command: &str) -> String {
@@ -33,26 +26,45 @@ impl AppleMusic {
         String::from_utf8(output.stdout).unwrap()
     }
 
-    pub fn new() -> AppleMusic {
-        AppleMusic {
-            status: Status::NotRunning,
-        }
+    pub fn new() -> Self {
+        Self {}
     }
 
     pub fn start(&mut self) {
         let script = r#"open application "Music""#;
         AppleMusic::execute_osascript(script);
-        self.status = Status::STOPPED;
     }
 
     pub fn play(&mut self) {
         AppleMusic::run_command("play");
-        self.status = Status::PLAYING;
     }
 
     pub fn pause(&mut self) {
         AppleMusic::run_command("pause");
-        self.status = Status::PAUSED;
+    }
+
+    pub fn track_position(&mut self) -> u16 {
+        let position = self.current_player_position();
+        let duration = self.current_track_duration();
+        let percentage = ((position / duration) * 100.00) as u16;
+        percentage
+
+    }
+
+    pub fn current_player_position(&mut self) -> f32 {
+        let position: f32 = AppleMusic::run_command("player position").
+            trim().
+            parse().
+            unwrap();
+        position
+    }
+
+    pub fn current_track_duration(&mut self) -> f32 {
+        let position: f32 = AppleMusic::run_command("duration of current track").
+            trim().
+            parse().
+            unwrap();
+        position
     }
 
     pub fn now_playing(&mut self) -> NowPlaying {
@@ -62,12 +74,25 @@ impl AppleMusic {
         NowPlaying { title: title, artist: artist, album: album }
     }
 
-    pub fn status_icon(&mut self) -> &str {
-        match self.status {
-            Status::PLAYING => "playing",
-            Status::PAUSED => "paused",
-            Status::STOPPED => "stopped",
-            Status::NotRunning => "Closed",
+    pub fn state_icon(&mut self) -> String {
+        if self.is_playing() {
+            "▶️".to_string()
+        } else {
+            "⏸️".to_string()
         }
+    }
+
+    pub fn state(&mut self) -> String {
+        AppleMusic::run_command("player state")
+    }
+
+    pub fn is_playing(&mut self) -> bool {
+        let playing = "playing";
+        self.state() == playing
+    }
+
+    pub fn stopped(&mut self) -> bool {
+        let stopped_state = "stopped";
+        self.state() == stopped_state
     }
 }
